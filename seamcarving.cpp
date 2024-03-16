@@ -17,10 +17,16 @@ int main() {
 	double targetWidth = 0;
 	double targetHeight = 0;
 
-	cout << "Input filename: ";
-	cin >> filename;
+	//cout << "Input filename: ";
+	//cin >> filename;
 
-	// add error checking for width, height, targetWidth, and targetHeight
+	filename = "sunset200X125.ppm";
+	width = 200;
+	height = 125;
+	targetWidth = 120;
+	targetHeight = 125;
+
+	/* add error checking for width, height, targetWidth, and targetHeight
 	cout << "Input width and height: ";
 	if (!(cin >> width)) {
 		cout << "Error: width is a non-integer value" << endl;
@@ -67,7 +73,7 @@ int main() {
 		return 0;
 	}
 
-
+	*/
 	// save originalWidth since width will change with carving
 	originalWidth = width;
 	// save originalHeight since height will change with carving
@@ -79,7 +85,6 @@ int main() {
 		if (loadImage(filename, image1, width, height)) {
 
 			// uncomment for part 2
-			/*
 			while ((width - targetWidth > 0) || (height - targetHeight > 0)) {
 			  if (width - targetWidth > 0) {
 				int* verticalSeam = findMinVerticalSeam(image1, width, height);
@@ -88,13 +93,14 @@ int main() {
 				width--;
 			  }
 			 
+			 
 			  // this is for the extra credit 
 			  if (height - targetHeight > 0) {
 				int* horizontalSeam = findMinHorizontalSeam(image1, width, height);
 				removeHorizontalSeam(image1, width, height, horizontalSeam);
 				deleteSeam(horizontalSeam);
 				height--;
-			  }*/
+			  }
 			}
 			
 
@@ -102,6 +108,7 @@ int main() {
 			ss << "carved" << width << "X" << height << "." << filename;
 			outputImage(ss.str().c_str(), image1, width, height);
 		}
+	}
 	
 
 	// call last to remove the memory from the heap

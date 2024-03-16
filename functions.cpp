@@ -4,6 +4,7 @@
 #include <fstream>
 #include <cmath>
 #include "functions.h"
+#include <assert.h>
 
 using namespace std;
 
@@ -31,16 +32,16 @@ Pixel** createImage(int width, int height) {
 		for (int i = 0; i < width; ++i) {
 			delete[] image[i]; // deleting nullptr is not a problem
 		}
-		delete[] image; // dlete array of pointers
+		delete[] image; // delete array of pointers
 		return nullptr;
 	}
 
 	// initialize cells
-	//cout << "Initializing cells..." << endl;
+	cout << "Initializing cells..." << endl;
 	for (int row = 0; row < height; ++row) {
 		for (int col = 0; col < width; ++col) {
-			//cout << "(" << col << ", " << row << ")" << endl;
-			image[col][row] = { 0, 0, 0 };
+			cout << "(" << col << ", " << row << ")" << endl;
+			image[row][col] = { 0, 0, 0 };
 		}
 	}
 	cout << "End createImage... " << endl;
@@ -174,9 +175,9 @@ bool outputImage(string filename, Pixel** image, int width, int height) {
 	ofs << "255" << endl;
 
 	//output pixels
-	for (int i = 0; i < height; ++i) {
-		for (int j = 0; j < width; ++j) {
-			ofs << image[j][i].r << " " << image[j][i].g << " " << image[j][i].b << " ";
+	for (int row = 0; row < height; ++row) {
+		for (int col = 0; col < width; ++col) {
+			ofs << image[row][col].r << " " << image[row][col].g << " " << image[row][col].b << " ";
 		}
 		ofs << endl;
 	}
@@ -184,7 +185,9 @@ bool outputImage(string filename, Pixel** image, int width, int height) {
 	return true;
 }
 
-int energy(Pixel** image, int x, int y, int width, int height) {
+int energy(Pixel** image, int y, int x, int width, int height) {
+	//I think the format of index should be [y][x] OR my vertical seam isnt checking boundaries correctly before going left or right
+	//cout << "energy x: " << x << " y: " << y << endl;
 	int rX, gX, bX, rY, gY, bY;
 
 	rX = abs(image[x == width - 1 ? 0 : x + 1][y].r - image[x == 0 ? width - 1 : x - 1][y].r);
@@ -202,51 +205,190 @@ int energy(Pixel** image, int x, int y, int width, int height) {
 	return energy;
 }
 
+//find pixels with least energy, while traveling down every step
 int loadVerticalSeam(Pixel** image, int start_col, int width, int height, int* seam){
-	
+	// Ensure image pointer is not null
+    assert(image != nullptr);
+
+    // Check if width and height are non-negative
+    assert(width >= 0 && height >= 0);
+
+    // Verify the dimensions of the image array
+    //for (int col = 0; col < width; ++col) {
+    //    assert(image[col] != nullptr); // Check if each column is not null
+    //}
+
+	//cout << "loadVerticalSeam" << endl;
 	seam = createSeam(height);
 	int col = start_col;
 	int totalEnergy = energy(image, 0, col, width, height);
 	seam[0] = col;
 	for (int row = 0; row < height-1; ++row) {
+		//cout << "loadVerticalSeam" << endl;
 
-		int energyDown = 2147483647;
-		int energyLeft = 2147483647;
-		int energyRight = 2147483647;
+		int energyDown = -1;
+		int energyLeft = -1;
+		int energyRight = 99999;
 
-		if (row + 1 < height) energyDown = energy(image, row + 1, col, width, height);
-		if (col - 1 >= 0 ) energyLeft = energy(image, row + 1, col - 1, width, height);
-		if (col + 1 <= width ) energyRight = energy(image, row + 1, col + 1, width, height);
+		//cout << "col: " << col << " row: " << row << endl;
+		if (col + 1 >= width) {
+			col--;
+			energyDown = energy(image, col, row, width, height);
+			energyLeft = energy(image, col - 1, row, width, height);
+		}
+		else if (col - 1 < 0) {
+			col++;
+			energyDown = energy(image, col, row, width, height);
+			energyRight = energy(image, col + 1, row, width, height);
+		}
+		else {
+			energyDown = energy(image, col, row, width, height);
+			energyLeft = energy(image, col - 1, row, width, height);
+			energyRight = energy(image, col + 1, row, width, height);
+		}
+
+		//cout << "Down: " << energyDown << " Left: " << energyLeft << " Right: " << energyRight << endl;
 		
-		//Down less than or equal to both
-		if (energyDown <= energyRight && energyDown <= energyLeft) totalEnergy += energyDown;
-		else if (energyLeft < energyDown && energyLeft <= energyRight) { totalEnergy += energyLeft; col--; }
-		else { totalEnergy += energyRight; col++; }
+		if (energyRight < energyDown && energyRight < energyLeft && energyRight >= 0) { totalEnergy += energyRight; col++; }
+		else if (energyLeft < energyDown && energyLeft < energyRight && energyLeft >= 0) { totalEnergy += energyLeft; col--; }
+		else { totalEnergy += energyDown;}
 
 		seam[row + 1] = col;
+		//cout << "row: " << row << endl;
 	}
 	return totalEnergy;
 }
 
 int loadHorizontalSeam(Pixel** image, int start_row, int width, int height, int* seam)
 {
-	return 0;
+	//cout << "loadHorizontalSeam" << endl;
+	seam = createSeam(height);
+	int row = start_row;
+	int totalEnergy = energy(image, 0, row, width, height);
+	seam[0] = row;
+	for (int col = 0; col < width-1; ++col) {
+
+		int energyDown;
+		int energyUp;
+		int energyStraight;
+
+		if (col + 1 < width) energyStraight = energy(image, col, row + 1, width, height);
+		if (row - 1 >= 0 ) energyDown = energy(image, col - 1, row + 1, width, height);
+		if (row + 1 <= height ) energyUp = energy(image, col + 1, row + 1, width, height);
+		
+		//Down less than or equal to both
+		if (energyDown <= energyUp && energyDown <= energyStraight) totalEnergy += energyDown;
+		else if (energyStraight < energyDown && energyStraight <= energyUp) { totalEnergy += energyStraight; col--; }
+		else { totalEnergy += energyUp; row++; }
+
+		seam[col + 1] = row;
+
+		return totalEnergy;
+	}
+	return totalEnergy;
 }
 
 int* findMinVerticalSeam(Pixel** image, int width, int height)
 {
-	return nullptr;
+
+	int currSeamVal = 2147483647;
+	int minSeamVal = 2147483647;
+
+	int* minSeam = nullptr;
+
+	//run through all seams in image width; return lowest energy seam
+	for (int col = 0; col < width - 1; ++col) {
+
+		int* currSeam = createSeam(height);
+		//cout << endl << "width: " << width << endl;
+		currSeamVal = loadVerticalSeam(image, col, width, height, currSeam);
+		if (currSeamVal < minSeamVal) {
+			minSeamVal = currSeamVal;
+			minSeam = currSeam;
+		}
+	}
+	//cout << minSeamVal << endl;
+	return (minSeam != 0 ? minSeam : nullptr);
 }
 
 int* findMinHorizontalSeam(Pixel** image, int width, int height)
 {
-	return nullptr;
+	int currSeamVal = 2147483647;
+	int minSeamVal = currSeamVal;
+
+	int* minSeam = nullptr;
+
+	//run through all seams in image height; return lowest energy seam
+	for (int row = 0; row < height - 1; ++row) {
+
+		int* currSeam = createSeam(width);
+		
+		currSeamVal = loadVerticalSeam(image, row, width, height, currSeam);
+		if (currSeamVal < minSeamVal) {
+			minSeamVal = currSeamVal;
+			minSeam = currSeam;
+		}
+	}
+	
+	return minSeam;
 }
 
 void removeVerticalSeam(Pixel** image, int width, int height, int* verticalSeam)
 {
+    // Create a new image with reduced width
+    Pixel** newImage = new Pixel * [width - 1];
+    for (int i = 0; i < width - 1; ++i) {
+        newImage[i] = new Pixel[height];
+    }
+
+    // Copy pixels from the original image to the new image; excluding pixels in the seam
+    for (int row = 0; row < height; ++row) {
+        int newCol = 0;
+        for (int col = 0; col < width; ++col) {
+			cout << verticalSeam[col] << endl;
+            if (col != verticalSeam[row]) {
+                newImage[row][newCol] = image[row][col];
+			++newCol;
+			}
+			
+        }
+    }
+
+    // Delete the original image
+    //for (int i = 0; i < width - 1; ++i) {
+    //    delete[] image[i];
+    //}
+    //delete[] image;
+
+    // Update the image pointer to point to the new image
+    image = newImage;
 }
 
 void removeHorizontalSeam(Pixel** image, int width, int height, int* horizontalSeam)
 {
+    // Create a new image with reduced height
+    Pixel** newImage = new Pixel*[width];
+    for (int i = 0; i < width - 1; ++i) {
+        newImage[i] = new Pixel[height - 1];
+    }
+
+    // Copy pixels from the original image to the new image, excluding pixels in the seam
+    for (int col = 0; col < width - 1; ++col) {
+        int newRow = 0;
+        for (int row = 0; row < height - 1; ++row) {
+            if (row != horizontalSeam[col]) {
+                newImage[col][newRow] = image[col][row];
+                ++newRow;
+            }
+        }
+    }
+
+    // Delete the original image
+    //for (int i = 0; i < width; ++i) {
+    //    delete[] image[i];
+    //}
+    //delete[] image;
+
+    // Update the image pointer to point to the new image
+    image = newImage;
 }
